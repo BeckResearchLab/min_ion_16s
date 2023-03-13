@@ -19,6 +19,7 @@ CLASSIFIED_COLUMNS = [
     "rank8name", "rank8", "rank8conf",
     "rank9name", "rank9", "rank9conf",
 ]
+TAX = ['domain', 'phylum', 'class','subclass', 'order', 'suborder', 'family', 'genus']
 
 
 @click.command()
@@ -41,6 +42,7 @@ def main(base, cache):
         if os.path.exists(main) and cache:
             print(f"* found cached main table, reading from {main}")
             sample_df = pd.read_csv(main, sep='\t')
+            print(f"+ main table has {sample_df.shape[0]} rows and {sample_df.shape[1]} columns")
             # save for merger later
             df_dict[basefile] = sample_df
             continue
@@ -49,6 +51,8 @@ def main(base, cache):
         class_df = pd.read_csv(classified, sep="\t", names=CLASSIFIED_COLUMNS)
         class_df.set_index("id", inplace=True)
         print(f"+ found {class_df.shape[0]} rows and {class_df.shape[1]} columns")
+        rebuild_classified_df(class_df).to_csv("/tmp/classified.txt", sep='\t')
+        return
 
         print(f"* reading {fasta}")
         fasta_tsv = fasta + ".tsv"
@@ -95,9 +99,11 @@ def main(base, cache):
     for df_key in df_dict:
         df = df_dict[df_key]
         seq_count = seq_count + df.shape[0]
-        seqs = pd.concat([seqs, df["sequence"]])
+        seqs = pd.concat([seqs, df["sequence"]], ignore_index=True)
     print(f"total sequences  {seq_count}")
+    seqs.sort_values(inplace=True, ignore_index=True)
     print(f"unique sequences {len(seqs.unique())}")
+    seqs.to_csv("unique_sequences.txt", index=False)
     return
     df_main = None
     for df_key in df_dict:
@@ -106,6 +112,34 @@ def main(base, cache):
         last_key = df_key
 
 
+def rebuild_classified_df(class_df_in):
+    print(f"+ reprocessing the classified dataframe for conformity")
+    class_df_in.reset_index(inplace=True)
+    columns = []
+    for tax in TAX:
+        columns.append(tax)
+        columns.append(tax+"_conf")
+    class_df = pd.DataFrame(columns=columns)
+    for index, row in class_df_in.iterrows():
+        new_row = {"id" : row["id"]}
+        for column in columns:
+            # skip the confidence columns, these will be filled in by the rank
+            if column.endswith("_conf"):
+                continue
+            new_row[column] = None
+            new_row[column+"_conf"] = None
+            # look for the rank in the in dataframe in the rankX columns
+            # if found, copy over a value
+            for rank in range(1, 10):
+                ranks = str(rank)
+                if row["rank"+ranks] == column:
+                    new_row[column] = row["rank"+ranks+"name"]
+                    new_row[column+"_conf"] = row["rank"+ranks+"conf"]
+                    break
+        # add the new row to the new df via a dictionary
+        class_df.loc[class_df.shape[0]+1] = new_row
+    print(f"+ after reprocessing class dataframe had {class_df.shape[0]} rows and {class_df.shape[1]} columns")
+    return class_df
 
 if __name__ == "__main__":
     main()
