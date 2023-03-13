@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./unify.py -b chopped_dec7_bc1 -b chopped_dec7_bc2 -b chopped_dec7_bc3 -b chopped_dec7_bc4 -b chopped_feb1_4 -b chopped_feb1_5 -b chopped_feb1_7 -b chopped_feb1_8

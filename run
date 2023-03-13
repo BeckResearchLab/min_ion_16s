@@ -1,0 +1,17 @@
+#!/bin/bash
+
+fqs=`ls *.fastq`
+for file in $fqs
+do
+	fa=`echo $file | sed "s/fastq/fasta/g"`
+	if [ ! -e $fa ];
+	then
+		echo making $fa from $file
+		awk '{if (NR % 4 == 1) { printf(">%s\n",substr($0,2)); } else if (NR % 4 == 2) print;}' $file > $fa
+	fi
+	out=`echo $file | sed "s/fastq/classified.txt/g"`
+	#echo running rdp on $fa output to $out
+	#java -jar RDPTools/classifier.jar classify -o $out $fa &
+done
+
+wait
