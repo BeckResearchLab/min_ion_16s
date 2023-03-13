@@ -121,21 +121,42 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         pass
 
     print(f"joining all samples on taxonomy")
-    df_main = None
-    last_key = None
+    # skip this if the cutoff is 0
+    if not np.isclose(taxa_join_conf_cut, 0, atol = 0.001):
+        print(f"+ pruning the sample data frame with taxa conf cutoff of {taxa_join_conf_cut}")
+        for df_key in df_dict:
+            df = df_dict[df_key]
+            print(f". pruning taxa table {df_key}")
+            for taxa in TAX:
+                locs = df[taxa+"_conf"] < taxa_join_conf_cut
+                df.loc[locs, taxa+"_conf"] = None
+                df.loc[locs, taxa] = None
+
+    df_tax_dict = {}
     for df_key in df_dict:
         df = df_dict[df_key]
+        print(f". counting taxa table {df_key}")
+        dft = df.groupby(TAX, dropna=False)["id"].count().reset_index(name=df_key)
+        print(f"+ counted table for {df_key} has {dft.shape[0]} rows and {dft.shape[1]} columns")
+        counts_tsv = df_key + "_taxa_counts.tsv"
+        print(f"> writing taxa counts table for {df_key} to {counts_tsv}")
+        dft.to_csv(counts_tsv, sep='\t', index=False)
+        dft.set_index(TAX, inplace=True)
+        df_tax_dict[df_key] = dft
+
+    df_main = None
+    for df_key in df_dict:
+        df = df_tax_dict[df_key]
         print(f". merging table {df_key}")
-        if df_main:
+        if type(df_main) == pd.DataFrame:
             # suffixes will not work if joins is odd or even?  last join will leave unsuffixed columns, dacb thought
-            df_main = df_main.merge(df, how="outer", on=TAX, suffixes=["_"+last_key, "_"+df_key])
+            df_main = df_main.merge(df, how="outer", left_index=True, right_index=True)
         else:
             df_main = df
-        print(df_main.columns)
-        last_key = df_key
     df_main.reset_index(inplace=True)
     print(f"+ final taxa joined table has {df_main.shape[0]} rows and {df_main.shape[1]} columns")
     print(f"> writing main taxa joined table to main.taxa.tsv")
+    df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
     df_main.to_csv("main.taxa.tsv", sep='\t', index=False)
 
     return
