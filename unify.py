@@ -48,11 +48,17 @@ def main(base, cache):
             continue
 
         print(f"* reading {classified}")
-        class_df = pd.read_csv(classified, sep="\t", names=CLASSIFIED_COLUMNS)
-        class_df.set_index("id", inplace=True)
-        print(f"+ found {class_df.shape[0]} rows and {class_df.shape[1]} columns")
-        rebuild_classified_df(class_df).to_csv("/tmp/classified.txt", sep='\t')
-        return
+        class_tsv = basefile + "_classified.tsv"
+        if not os.path.exists(class_tsv) or not cache:
+            orig_class_df = pd.read_csv(classified, sep="\t", names=CLASSIFIED_COLUMNS)
+            orig_class_df.set_index("id", inplace=True)
+            print(f"+ found {orig_class_df.shape[0]} rows and {orig_class_df.shape[1]} columns in original txt")
+            class_df = rebuild_classified_df(orig_class_df)
+            print(f"+ writing cached version of reprocessed data to f{class_tsv}")
+            class_df.to_csv(class_tsv, sep='\t')
+        else:
+            print(f"+ found cached version of reprocessed classifications, reading from f{class_tsv}")
+            class_df = pd.read_csv(class_tsv, sep='\t')
 
         print(f"* reading {fasta}")
         fasta_tsv = fasta + ".tsv"
@@ -94,6 +100,7 @@ def main(base, cache):
         print("only one base file supplied; nothing more to do")
         return
 
+    return
     seqs = pd.Series(dtype="object")
     seq_count = 0
     for df_key in df_dict:
@@ -119,25 +126,30 @@ def rebuild_classified_df(class_df_in):
     for tax in TAX:
         columns.append(tax)
         columns.append(tax+"_conf")
-    class_df = pd.DataFrame(columns=columns)
+    class_df = pd.DataFrame(columns=["id", "classified"] + columns)
+    print(class_df.head())
     for index, row in class_df_in.iterrows():
-        new_row = {"id" : row["id"]}
+        new_row = {"id" : row["id"], "classified" : row["classified"]}
+        tax_dict = {}
+        for rank in range(1, 10):
+            ranks = str(rank)
+            tax_dict[row["rank"+ranks]] = (row["rank"+ranks+"name"], row["rank"+ranks+"conf"])
+        print(tax_dict)
         for column in columns:
             # skip the confidence columns, these will be filled in by the rank
             if column.endswith("_conf"):
                 continue
-            new_row[column] = None
-            new_row[column+"_conf"] = None
-            # look for the rank in the in dataframe in the rankX columns
-            # if found, copy over a value
-            for rank in range(1, 10):
-                ranks = str(rank)
-                if row["rank"+ranks] == column:
-                    new_row[column] = row["rank"+ranks+"name"]
-                    new_row[column+"_conf"] = row["rank"+ranks+"conf"]
-                    break
+            name, conf = tax_dict.get(column, (None, None))
+            new_row[column] = name
+            new_row[column+"_conf"] = conf
+        if index + 1 % 2 == 0:
+            print(index)
+            print(".", end="")
+            print(new_row)
+            break
         # add the new row to the new df via a dictionary
-        class_df.loc[class_df.shape[0]+1] = new_row
+        class_df.append(new_row, ignore_index=True)
+    class_df.set_index("id")
     print(f"+ after reprocessing class dataframe had {class_df.shape[0]} rows and {class_df.shape[1]} columns")
     return class_df
 
