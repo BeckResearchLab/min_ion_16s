@@ -5,6 +5,7 @@ import os
 
 from Bio.SeqIO.FastaIO import SimpleFastaParser
 import click
+import numpy as np
 import pandas as pd
 
 CLASSIFIED_COLUMNS = [
@@ -54,10 +55,10 @@ def main(base, cache):
             orig_class_df.set_index("id", inplace=True)
             print(f"+ found {orig_class_df.shape[0]} rows and {orig_class_df.shape[1]} columns in original txt")
             class_df = rebuild_classified_df(orig_class_df)
-            print(f"+ writing cached version of reprocessed data to f{class_tsv}")
+            print(f"+ writing cached version of reprocessed data to {class_tsv}")
             class_df.to_csv(class_tsv, sep='\t')
         else:
-            print(f"+ found cached version of reprocessed classifications, reading from f{class_tsv}")
+            print(f"+ found cached version of reprocessed classifications, reading from {class_tsv}")
             class_df = pd.read_csv(class_tsv, sep='\t')
 
         print(f"* reading {fasta}")
@@ -122,34 +123,34 @@ def main(base, cache):
 def rebuild_classified_df(class_df_in):
     print(f"+ reprocessing the classified dataframe for conformity")
     class_df_in.reset_index(inplace=True)
-    columns = []
+    new_df_rows = class_df_in.shape[0]
+
+    columns = ["id", "classified"]
     for tax in TAX:
         columns.append(tax)
         columns.append(tax+"_conf")
-    class_df = pd.DataFrame(columns=["id", "classified"] + columns)
-    print(class_df.head())
+
+    class_df_dict = {}
+    for column in columns:
+        class_df_dict[column] = np.empty(new_df_rows, dtype="object")
+
     for index, row in class_df_in.iterrows():
-        new_row = {"id" : row["id"], "classified" : row["classified"]}
+        class_df_dict["id"][index] = row["id"]
+        class_df_dict["classified"][index] = row["classified"]
+        # build up the tax dict from the row data
         tax_dict = {}
         for rank in range(1, 10):
             ranks = str(rank)
             tax_dict[row["rank"+ranks]] = (row["rank"+ranks+"name"], row["rank"+ranks+"conf"])
-        print(tax_dict)
-        for column in columns:
-            # skip the confidence columns, these will be filled in by the rank
-            if column.endswith("_conf"):
-                continue
-            name, conf = tax_dict.get(column, (None, None))
-            new_row[column] = name
-            new_row[column+"_conf"] = conf
-        if index + 1 % 2 == 0:
-            print(index)
-            print(".", end="")
-            print(new_row)
-            break
-        # add the new row to the new df via a dictionary
-        class_df.append(new_row, ignore_index=True)
+        # assign the tax from the dict
+        for tax in TAX:
+            name, conf = tax_dict.get(tax, (None, None))
+            class_df_dict[tax][index] = name
+            class_df_dict[tax+"_conf"][index] = conf
+    # create the df from the dictionary of numpy arrays
+    class_df = pd.DataFrame(class_df_dict)
     class_df.set_index("id")
+    print(class_df.head())
     print(f"+ after reprocessing class dataframe had {class_df.shape[0]} rows and {class_df.shape[1]} columns")
     return class_df
 
