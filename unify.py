@@ -114,7 +114,7 @@ def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_s
     return
 
 
-def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: bool):
+def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: bool) -> None:
 
     if taxa_statistics:
         #print(f"doing a statistical analysis of taxonomy distributions across samples")
@@ -162,7 +162,7 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
     return
 
 
-def sequence_join_dfs(df_dict: dict, uniq: bool):
+def sequence_join_dfs(df_dict: dict, uniq: bool) -> None:
     print(f"finding unique sequences across all samples")
     seqs = pd.Series(dtype="object")
     seq_count = 0
@@ -195,7 +195,8 @@ def sequence_join_dfs(df_dict: dict, uniq: bool):
     return
 
 
-def rebuild_classified_df(class_df_in):
+def rebuild_classified_df(class_df_in: pd.DataFrame) -> pd.DataFrame:
+    
     print(f"+ reprocessing the classified dataframe for conformity")
     class_df_in.reset_index(inplace=True)
     new_df_rows = class_df_in.shape[0]

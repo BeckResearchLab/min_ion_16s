@@ -1,7 +1,7 @@
 #!/bin/bash
 
 files="chopped_dec7_bc1 chopped_dec7_bc2 chopped_dec7_bc3 chopped_dec7_bc4 chopped_feb1_4 chopped_feb1_5 chopped_feb1_7 chopped_feb1_8"
-files="chopped_feb1_5 chopped_feb1_7"
+#files="chopped_feb1_5 chopped_feb1_7"
 
 #REBUILD_CACHE="true"
 if [ -n "$REBUILD_CACHE" ]
