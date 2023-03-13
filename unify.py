@@ -42,7 +42,7 @@ def main(base, cache):
         main = basefile + ".main.tsv"
         if os.path.exists(main) and cache:
             print(f"* found cached main table, reading from {main}")
-            sample_df = pd.read_csv(main, sep='\t')
+            sample_df = pd.read_csv(main, sep='\t', index_col=False)
             print(f"+ main table has {sample_df.shape[0]} rows and {sample_df.shape[1]} columns")
             # save for merger later
             df_dict[basefile] = sample_df
@@ -52,14 +52,14 @@ def main(base, cache):
         class_tsv = basefile + "_classified.tsv"
         if not os.path.exists(class_tsv) or not cache:
             orig_class_df = pd.read_csv(classified, sep="\t", names=CLASSIFIED_COLUMNS)
-            orig_class_df.set_index("id", inplace=True)
-            print(f"+ found {orig_class_df.shape[0]} rows and {orig_class_df.shape[1]} columns in original txt")
+            print(f"+ found {orig_class_df.shape[0]} rows and {orig_class_df.shape[1]} columns in original classified.txt")
             class_df = rebuild_classified_df(orig_class_df)
             print(f"+ writing cached version of reprocessed data to {class_tsv}")
-            class_df.to_csv(class_tsv, sep='\t')
+            class_df.to_csv(class_tsv, sep='\t', index=False)
         else:
             print(f"+ found cached version of reprocessed classifications, reading from {class_tsv}")
-            class_df = pd.read_csv(class_tsv, sep='\t')
+            class_df = pd.read_csv(class_tsv, sep='\t', index_col=False)
+        class_df.set_index("id", inplace=True)
 
         print(f"* reading {fasta}")
         fasta_tsv = fasta + ".tsv"
@@ -74,12 +74,12 @@ def main(base, cache):
                     lens.append(len(sequence))
                     seqs.append(sequence)
             fasta_df = pd.DataFrame({"id": ids, "sequence_length": lens, "sequence": seqs})
-            fasta_df.set_index("id", inplace=True)
             print(f"+ writing cached version {fasta_tsv}")
-            fasta_df.to_csv(fasta_tsv, sep='\t')
+            fasta_df.to_csv(fasta_tsv, sep='\t', index=False)
         else:
             print(f"+ reading cached version {fasta_tsv}")
-            fasta_df = pd.read_csv(fasta_tsv, sep='\t')
+            fasta_df = pd.read_csv(fasta_tsv, sep='\t', index_col=False)
+        fasta_df.set_index("id", inplace=True)
         print(f"+ derived table has {fasta_df.shape[0]} rows and {fasta_df.shape[1]} columns")
 
         sample_df = class_df.merge(fasta_df, how="outer", on="id", validate="1:1")
@@ -89,10 +89,10 @@ def main(base, cache):
         sample_counts_df = sample_df.value_counts("sequence").reset_index(name="count")
         # join back, note this will be interesting if the sequences are not unique
         sample_df.merge(sample_counts_df, how="inner", on="sequence", validate="1:1")
-        sample_df.set_index("sequence", inplace=True) # this will fail with duplicate sequences
         print(f"> merged table has {sample_df.shape[0]} rows and {sample_df.shape[1]} columns")
         print(f"+ writing combined file to {main}")
-        sample_df.to_csv(main, sep='\t')
+        sample_df.reset_index(inplace=True)
+        sample_df.to_csv(main, sep='\t', index=False)
 
         # save for merger later
         df_dict[basefile] = sample_df
@@ -149,8 +149,6 @@ def rebuild_classified_df(class_df_in):
             class_df_dict[tax+"_conf"][index] = conf
     # create the df from the dictionary of numpy arrays
     class_df = pd.DataFrame(class_df_dict)
-    class_df.set_index("id")
-    print(class_df.head())
     print(f"+ after reprocessing class dataframe had {class_df.shape[0]} rows and {class_df.shape[1]} columns")
     return class_df
 
