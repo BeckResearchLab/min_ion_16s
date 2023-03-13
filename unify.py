@@ -101,17 +101,17 @@ def main(base, cache):
         print("only one base file supplied; nothing more to do")
         return
 
-    return
+    print(f"finding unique sequences across all samples")
     seqs = pd.Series(dtype="object")
     seq_count = 0
     for df_key in df_dict:
         df = df_dict[df_key]
         seq_count = seq_count + df.shape[0]
         seqs = pd.concat([seqs, df["sequence"]], ignore_index=True)
-    print(f"total sequences  {seq_count}")
+    print(f"+ total sequences  {seq_count}")
     seqs.sort_values(inplace=True, ignore_index=True)
-    print(f"unique sequences {len(seqs.unique())}")
-    seqs.to_csv("unique_sequences.txt", index=False)
+    print(f"+ unique sequences {len(seqs.unique())}")
+    #seqs.to_csv("unique_sequences.txt", index=False)
     return
     df_main = None
     for df_key in df_dict:

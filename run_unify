@@ -3,13 +3,16 @@
 files="chopped_dec7_bc1 chopped_dec7_bc2 chopped_dec7_bc3 chopped_dec7_bc4 chopped_feb1_4 chopped_feb1_5 chopped_feb1_7 chopped_feb1_8"
 #files="chopped_feb1_5 chopped_feb1_7"
 
-for file in $files
-do
-	echo "generating cache for $file"
-	./unify.py --no-cache -b $file &> $file.log &
-done
+#REBUILD_CACHE="true"
+if [ -n "$REBUILD_CACHE" ]
+then
+	for file in $files
+	do
+		echo "generating cache for $file"
+		./unify.py --no-cache -b $file &> $file.log &
+	done
 
-wait
+	wait
+fi
 
-exit 
-./unify.py -b chopped_dec7_bc1 -b chopped_dec7_bc2 -b chopped_dec7_bc3 -b chopped_dec7_bc4 -b chopped_feb1_4 -b chopped_feb1_5 -b chopped_feb1_7 -b chopped_feb1_8
+echo $files | xargs printf -- '-b %s\n' | xargs ./unify.py
