@@ -3,4 +3,5 @@
 *.tsv
 *.gz
 *.rtf
+*.log
 .ipynb_checkpoints
