@@ -1,5 +1,6 @@
-.txt
-.fasta
-.tsv
-.gz
-.rtf
+*.txt
+*.fasta
+*.tsv
+*.gz
+*.rtf
+.ipynb_checkpoints
