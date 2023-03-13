@@ -22,11 +22,15 @@ CLASSIFIED_COLUMNS = [
 ]
 TAX = ['domain', 'phylum', 'class','subclass', 'order', 'suborder', 'family', 'genus']
 
-
 @click.command()
 @click.option("--base", "-b", multiple=True, help="base name of .fasta and .classified.txt files to unify, may be multiple")
-@click.option("--cache/--no-cache", default=True, help="should tab separated value caches be used if present to speed up processing")
-def main(base, cache):
+@click.option("--cache/--no-cache", default=True, help="should tab separated value caches be used if present to speed up processing?")
+@click.option("--sequence_join", default=False, help="should the samples be joined on sequences?")
+@click.option("--uniq", default=False, help="should the list of unique sequences be written to unique_sequences.txt?")
+@click.option("--taxa_join", default=True, help="should the samples be joined on taxaonomy?")
+@click.option("--taxa-join-conf-cut", default=.85, type=float)
+@click.option("--taxa-statistics", default=True, help="should a statistical analysis be performed of the taxa distributions")
+def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_statistics):
     """Driver for amplicon data sheet tool"""
     df_dict = {}
     for basefile in base:
@@ -101,6 +105,43 @@ def main(base, cache):
         print("only one base file supplied; nothing more to do")
         return
 
+    if sequence_join:
+        sequence_join_dfs(df_dict, uniq)
+
+    if taxa_join:
+        taxa_join_dfs(df_dict, taxa_join_conf_cut, taxa_statistics)
+
+    return
+
+
+def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: bool):
+
+    if taxa_statistics:
+        #print(f"doing a statistical analysis of taxonomy distributions across samples")
+        pass
+
+    print(f"joining all samples on taxonomy")
+    df_main = None
+    last_key = None
+    for df_key in df_dict:
+        df = df_dict[df_key]
+        print(f". merging table {df_key}")
+        if df_main:
+            # suffixes will not work if joins is odd or even?  last join will leave unsuffixed columns, dacb thought
+            df_main = df_main.merge(df, how="outer", on=TAX, suffixes=["_"+last_key, "_"+df_key])
+        else:
+            df_main = df
+        print(df_main.columns)
+        last_key = df_key
+    df_main.reset_index(inplace=True)
+    print(f"+ final taxa joined table has {df_main.shape[0]} rows and {df_main.shape[1]} columns")
+    print(f"> writing main taxa joined table to main.taxa.tsv")
+    df_main.to_csv("main.taxa.tsv", sep='\t', index=False)
+
+    return
+
+
+def sequence_join_dfs(df_dict: dict, uniq: bool):
     print(f"finding unique sequences across all samples")
     seqs = pd.Series(dtype="object")
     seq_count = 0
@@ -111,13 +152,26 @@ def main(base, cache):
     print(f"+ total sequences  {seq_count}")
     seqs.sort_values(inplace=True, ignore_index=True)
     print(f"+ unique sequences {len(seqs.unique())}")
-    #seqs.to_csv("unique_sequences.txt", index=False)
-    return
-    df_main = None
+    if uniq:
+        print(f"+ writing unique sequences to unique_sequences.txt")
+        seqs.to_csv("unique_sequences.txt", index=False)
+
+    print(f"joining all samples on sequence")
+    df_main = pd.DataFrame(seqs, columns=["sequence"])
+    last_key=""
     for df_key in df_dict:
         df = df_dict[df_key]
-        df_main.merge(df, how="outer", on="sequence", suffixes=["_"+last_key, "_"+df_key])
+        print(f". merging table {df_key}")
+        # suffixes will not work if joins is odd or even?  last join will leave unsuffixed columns, dacb thought
+        df_main = df_main.merge(df, how="outer", on="sequence", suffixes=["_"+last_key, "_"+df_key])
+        print(df_main.columns)
         last_key = df_key
+    df_main.reset_index(inplace=True)
+    print(f"+ final sequence joined table has {df_main.shape[0]} rows and {df_main.shape[1]} columns")
+    print(f"> writing main sequence joined table to main.sequences.tsv")
+    df_main.to_csv("main.sequences.tsv", sep='\t', index=False)
+
+    return
 
 
 def rebuild_classified_df(class_df_in):
@@ -151,6 +205,7 @@ def rebuild_classified_df(class_df_in):
     class_df = pd.DataFrame(class_df_dict)
     print(f"+ after reprocessing class dataframe had {class_df.shape[0]} rows and {class_df.shape[1]} columns")
     return class_df
+
 
 if __name__ == "__main__":
     main()
