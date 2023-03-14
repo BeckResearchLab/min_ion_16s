@@ -4,6 +4,7 @@
 import os
 
 from Bio.SeqIO.FastaIO import SimpleFastaParser
+from Bio.SeqUtils.lcc import lcc_simp
 import click
 import numpy as np
 import pandas as pd
@@ -25,11 +26,11 @@ TAX = ['domain', 'phylum', 'class','subclass', 'order', 'suborder', 'family', 'g
 @click.command()
 @click.option("--base", "-b", multiple=True, help="base name of .fasta and .classified.txt files to unify, may be multiple")
 @click.option("--cache/--no-cache", default=True, help="should tab separated value caches be used if present to speed up processing?")
-@click.option("--sequence_join", default=False, help="should the samples be joined on sequences?")
+@click.option("--sequence-join/--no-sequence-join", default=False, help="should the samples be joined on sequences?")
 @click.option("--uniq", default=False, help="should the list of unique sequences be written to unique_sequences.txt?")
-@click.option("--taxa_join", default=True, help="should the samples be joined on taxaonomy?")
+@click.option("--taxa_join/--no-taxa-joine", default=True, help="should the samples be joined on taxaonomy?")
 @click.option("--taxa-join-conf-cut", default=.85, type=float)
-@click.option("--taxa-statistics", default=True, help="should a statistical analysis be performed of the taxa distributions")
+@click.option("--taxa-statistics/--no-taxa-statistics", default=True, help="should a statistical analysis be performed of the taxa distributions")
 def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_statistics):
     """Driver for amplicon data sheet tool"""
     df_dict = {}
@@ -115,10 +116,20 @@ def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_s
 
 
 def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: bool) -> None:
-
+    """Join the sample data frames by the taxonomy at a confidence cutoff"""
     if taxa_statistics:
-        #print(f"doing a statistical analysis of taxonomy distributions across samples")
-        pass
+        dfs_stats = []
+        print(f"doing a statistical analysis of taxonomy distributions across samples")
+        for df_key in df_dict:
+            df = df_dict[df_key]
+            print(f". assembling data from {df_key}")
+            dfs_stats.append(df[["id"] + TAX + [taxa+"_conf" for taxa in TAX]])
+            #print(dfs_stats[len(dfs_stats)-1].head())
+        df_stats = pd.concat(dfs_stats)
+        print(f"+ resulting taxonomy confidence statistics table has {df_stats.shape[0]} rows and {df_stats.shape[1]} columns")
+        print(f"> writing taxonomy confidence statistics to main.taxa.stastics.tsv")
+        df_stats.groupby(TAX, dropna=False).describe().to_csv("main.taxa.statistics.tsv", sep='\t')
+        #print(df_stats.groupby(TAX, dropna=False).describe())
 
     print(f"joining all samples on taxonomy")
     # skip this if the cutoff is 0
@@ -163,6 +174,7 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
 
 
 def sequence_join_dfs(df_dict: dict, uniq: bool) -> None:
+    """Join the sample data frames on sequence identity"""
     print(f"finding unique sequences across all samples")
     seqs = pd.Series(dtype="object")
     seq_count = 0
@@ -196,7 +208,7 @@ def sequence_join_dfs(df_dict: dict, uniq: bool) -> None:
 
 
 def rebuild_classified_df(class_df_in: pd.DataFrame) -> pd.DataFrame:
-    
+    """Reformats the classified.txt table structure to fixed taxonomy"""
     print(f"+ reprocessing the classified dataframe for conformity")
     class_df_in.reset_index(inplace=True)
     new_df_rows = class_df_in.shape[0]
