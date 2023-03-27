@@ -15,4 +15,4 @@ then
 	wait
 fi
 
-echo $files | xargs printf -- '-b %s\n' | xargs ./unify.py
+echo $files | xargs printf -- '-b %s\n' | xargs ./unify.py --uniq

@@ -9,6 +9,9 @@ import click
 import numpy as np
 import pandas as pd
 
+# these are the generic column names used for reading the RDP classifier
+# classified.txt files; the columns don't map to specific tax ranks so
+# there is some code required to realign these ranks with tax ranks
 CLASSIFIED_COLUMNS = [
     "id", "classified",
     "rank1name", "rank1", "rank1conf",
@@ -27,12 +30,17 @@ TAX = ['domain', 'phylum', 'class','subclass', 'order', 'suborder', 'family', 'g
 @click.option("--base", "-b", multiple=True, help="base name of .fasta and .classified.txt files to unify, may be multiple")
 @click.option("--cache/--no-cache", default=True, help="should tab separated value caches be used if present to speed up processing?")
 @click.option("--sequence-join/--no-sequence-join", default=False, help="should the samples be joined on sequences?")
-@click.option("--uniq", default=False, help="should the list of unique sequences be written to unique_sequences.txt?")
+@click.option("--uniq/--no-uniq", default=False, help="should the list of unique sequences be written to unique_sequences.txt?")
 @click.option("--taxa_join/--no-taxa-joine", default=True, help="should the samples be joined on taxaonomy?")
 @click.option("--taxa-join-conf-cut", default=.85, type=float)
 @click.option("--taxa-statistics/--no-taxa-statistics", default=True, help="should a statistical analysis be performed of the taxa distributions")
 def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_statistics):
     """Driver for amplicon data sheet tool"""
+
+    if len(base) == 0:
+        print(f"nothing to do! no base names supplied")
+        return
+
     df_dict = {}
     for basefile in base:
         print(f"processing for {basefile}")
@@ -72,13 +80,15 @@ def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_s
             ids = []
             seqs = []
             lens = []
+            lccs = []
             with open(fasta) as f_in:
                 for idt, sequence in SimpleFastaParser(f_in):
                     ids.append(idt.split()[0])
                     sequence = "".join(sequence)
                     lens.append(len(sequence))
                     seqs.append(sequence)
-            fasta_df = pd.DataFrame({"id": ids, "sequence_length": lens, "sequence": seqs})
+                    lccs.append(lcc_simp(sequence))
+            fasta_df = pd.DataFrame({"id": ids, "sequence_length": lens, "lcc_score": lccs, "sequence": seqs})
             print(f"+ writing cached version {fasta_tsv}")
             fasta_df.to_csv(fasta_tsv, sep='\t', index=False)
         else:
@@ -148,6 +158,9 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         df = df_dict[df_key]
         print(f". counting taxa table {df_key}")
         dft = df.groupby(TAX, dropna=False)["id"].count().reset_index(name=df_key)
+        read_sum = dft[df_key].sum()
+        print(f". {read_sum} sum of counts and {df.shape[0]} reads")
+        assert read_sum == df.shape[0]
         print(f"+ counted table for {df_key} has {dft.shape[0]} rows and {dft.shape[1]} columns")
         counts_tsv = df_key + "_taxa_counts.tsv"
         print(f"> writing taxa counts table for {df_key} to {counts_tsv}")
@@ -168,6 +181,12 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
     print(f"+ final taxa joined table has {df_main.shape[0]} rows and {df_main.shape[1]} columns")
     print(f"> writing main taxa joined table to main.taxa.tsv")
     df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
+    # make sure the count sums match the number of reads in each sample
+    for df_key in df_dict:
+        df = df_dict[df_key]
+        read_sum = df_main[df_key].sum()
+        print(f". {read_sum} sum of counts and {df.shape[0]} reads")
+        assert read_sum == df.shape[0]
     df_main.to_csv("main.taxa.tsv", sep='\t', index=False)
 
     return
