@@ -194,7 +194,7 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         assert read_sum == df.shape[0]
     print(f"> writing main taxa joined table to main.taxa.tsv")
     # sort by the sum of the counts across all samples descending
-    #df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
+    df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
     df_main.to_csv("main.taxa.tsv", sep='\t', index=False, float_format="%.0f")
 
     return
