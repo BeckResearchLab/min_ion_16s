@@ -214,7 +214,7 @@ def sequence_join_dfs(df_dict: dict, uniq: bool) -> None:
     print(f"+ unique sequences {len(seqs.unique())}")
     if uniq:
         print(f"+ writing unique sequences to unique_sequences.txt")
-        seqs.to_csv("unique_sequences.txt", index=False)
+        seqs.to_csv("unique_sequences.txt", index=False, header=False)
 
     print(f"joining all samples on sequence")
     df_main = pd.DataFrame(seqs, columns=["sequence"])
