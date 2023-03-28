@@ -162,9 +162,11 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         print(f". {read_sum} sum of counts and {df.shape[0]} reads")
         assert read_sum == df.shape[0]
         print(f"+ counted table for {df_key} has {dft.shape[0]} rows and {dft.shape[1]} columns")
-        counts_tsv = df_key + "_taxa_counts.tsv"
+        counts_tsv = df_key + ".taxa_counts.tsv"
         print(f"> writing taxa counts table for {df_key} to {counts_tsv}")
         dft.to_csv(counts_tsv, sep='\t', index=False)
+        # fill the na with periods for testing
+        #dft[TAX] = df[TAX].fillna(".")
         dft.set_index(TAX, inplace=True)
         df_tax_dict[df_key] = dft
 
@@ -172,22 +174,28 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
     for df_key in df_dict:
         df = df_tax_dict[df_key]
         print(f". merging table {df_key}")
+        df.reset_index(inplace=True)
         if type(df_main) == pd.DataFrame:
-            # suffixes will not work if joins is odd or even?  last join will leave unsuffixed columns, dacb thought
-            df_main = df_main.merge(df, how="outer", left_index=True, right_index=True)
+            # for some reason, merging on the indices made from the TAX columns did not
+            # work as expected, this change is also coupled to the reset index right
+            # before the type check
+            #df_main = df_main.merge(df, how="outer", left_index=True, right_index=True)
+            df_main = df_main.merge(df, how="outer", on=TAX)
         else:
             df_main = df
     df_main.reset_index(inplace=True)
     print(f"+ final taxa joined table has {df_main.shape[0]} rows and {df_main.shape[1]} columns")
-    print(f"> writing main taxa joined table to main.taxa.tsv")
-    df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
     # make sure the count sums match the number of reads in each sample
+    print(f"+ checking the table internal consistency")
     for df_key in df_dict:
         df = df_dict[df_key]
         read_sum = df_main[df_key].sum()
-        print(f". {read_sum} sum of counts and {df.shape[0]} reads")
+        print(f". sample {df_key} has a {read_sum} sum of counts and {df.shape[0]} reads")
         assert read_sum == df.shape[0]
-    df_main.to_csv("main.taxa.tsv", sep='\t', index=False)
+    print(f"> writing main taxa joined table to main.taxa.tsv")
+    # sort by the sum of the counts across all samples descending
+    #df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
+    df_main.to_csv("main.taxa.tsv", sep='\t', index=False, float_format="%.0f")
 
     return
 
