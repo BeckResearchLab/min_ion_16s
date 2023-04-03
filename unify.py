@@ -41,6 +41,7 @@ def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_s
         print(f"nothing to do! no base names supplied")
         return
 
+    # process the RDP classified.txt files and the sequence files in fasta
     df_dict = {}
     for basefile in base:
         print(f"processing for {basefile}")
@@ -74,6 +75,7 @@ def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_s
             class_df = pd.read_csv(class_tsv, sep='\t', index_col=False)
         class_df.set_index("id", inplace=True)
 
+        # fasta input
         print(f"* reading {fasta}")
         fasta_tsv = fasta + ".tsv"
         if not os.path.exists(fasta_tsv) or not cache:
@@ -97,6 +99,7 @@ def main(base, cache, sequence_join, uniq, taxa_join, taxa_join_conf_cut, taxa_s
         fasta_df.set_index("id", inplace=True)
         print(f"+ derived table has {fasta_df.shape[0]} rows and {fasta_df.shape[1]} columns")
 
+        # merge the fasta and classified tables
         sample_df = class_df.merge(fasta_df, how="outer", on="id", validate="1:1")
         # count the occurences of unique sequences
         print(f"+ found {len(sample_df['sequence'].unique())} unique sequences")
@@ -158,6 +161,9 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         df = df_dict[df_key]
         print(f". counting taxa table {df_key}")
         dft = df.groupby(TAX, dropna=False)["id"].count().reset_index(name=df_key)
+        # force all the tax columns to str type as 
+        # rarely they will autocovert to float 64
+        dft[TAX] = dft[TAX].astype(str)
         read_sum = dft[df_key].sum()
         print(f". {read_sum} sum of counts and {df.shape[0]} reads")
         assert read_sum == df.shape[0]
@@ -165,8 +171,6 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         counts_tsv = df_key + ".taxa_counts.tsv"
         print(f"> writing taxa counts table for {df_key} to {counts_tsv}")
         dft.to_csv(counts_tsv, sep='\t', index=False)
-        # fill the na with periods for testing
-        #dft[TAX] = df[TAX].fillna(".")
         dft.set_index(TAX, inplace=True)
         df_tax_dict[df_key] = dft
 
@@ -202,6 +206,7 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
 
 def sequence_join_dfs(df_dict: dict, uniq: bool) -> None:
     """Join the sample data frames on sequence identity"""
+    assert False, "The sequence join module is deprecated"
     print(f"finding unique sequences across all samples")
     seqs = pd.Series(dtype="object")
     seq_count = 0
@@ -240,11 +245,15 @@ def rebuild_classified_df(class_df_in: pd.DataFrame) -> pd.DataFrame:
     class_df_in.reset_index(inplace=True)
     new_df_rows = class_df_in.shape[0]
 
+    # build the list of columns for use as an iterable
     columns = ["id", "classified"]
     for tax in TAX:
         columns.append(tax)
         columns.append(tax+"_conf")
 
+    # iterate over columns and setup empy np arrays
+    # filling empty arrays and converting that to a df is way faster
+    # than appending to lists in dicts or other methods
     class_df_dict = {}
     for column in columns:
         class_df_dict[column] = np.empty(new_df_rows, dtype="object")
