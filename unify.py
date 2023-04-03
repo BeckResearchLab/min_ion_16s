@@ -164,13 +164,18 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
         # force all the tax columns to str type as 
         # rarely they will autocovert to float 64
         dft[TAX] = dft[TAX].astype(str)
+        # astype will make NaN into 'nan' and we need it to empty
+        # for downstream analyses
+        dft[TAX] = dft[TAX].replace('nan', '')
+        # sum the reads and do a test to make sure the reads for the
+        # sample match the sum of the count of the reads for the sample
         read_sum = dft[df_key].sum()
         print(f". {read_sum} sum of counts and {df.shape[0]} reads")
         assert read_sum == df.shape[0]
         print(f"+ counted table for {df_key} has {dft.shape[0]} rows and {dft.shape[1]} columns")
         counts_tsv = df_key + ".taxa_counts.tsv"
         print(f"> writing taxa counts table for {df_key} to {counts_tsv}")
-        dft.to_csv(counts_tsv, sep='\t', index=False)
+        dft.to_csv(counts_tsv, sep='\t', index=False, na_rep='')
         dft.set_index(TAX, inplace=True)
         df_tax_dict[df_key] = dft
 
@@ -199,7 +204,7 @@ def taxa_join_dfs(df_dict: dict, taxa_join_conf_cut: float, taxa_statistics: boo
     print(f"> writing main taxa joined table to main.taxa.tsv")
     # sort by the sum of the counts across all samples descending
     df_main.sort_index(ascending=False, key=df_main[df_dict.keys()].sum(1).get, inplace=True)
-    df_main.to_csv("main.taxa.tsv", sep='\t', index=False, float_format="%.0f")
+    df_main.to_csv("main.taxa.tsv", sep='\t', index=False, float_format="%.0f", na_rep='')
 
     return
 
