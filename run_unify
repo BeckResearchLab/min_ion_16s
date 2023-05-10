@@ -1,7 +1,9 @@
 #!/bin/bash
 
-files="chopped_dec7_bc1 chopped_dec7_bc2 chopped_dec7_bc3 chopped_dec7_bc4 chopped_feb1_4 chopped_feb1_5 chopped_feb1_7 chopped_feb1_8"
+files="chopped_dec7_bc1 chopped_dec7_bc2 chopped_dec7_bc3 chopped_dec7_bc4 chopped_feb1_4 chopped_feb1_5 chopped_feb1_7 chopped_feb1_8 chopped_feb21_bc11 chopped_feb21_bc2 chopped_feb21_bc3 chopped_feb21_bc6 chopped_feb21_bc9"
+#chopped_feb21_bc11"
 #files="chopped_feb1_5 chopped_feb1_7"
+#files="chopped_feb21_bc11 chopped_feb21_bc2 chopped_feb21_bc3 chopped_feb21_bc6 chopped_feb21_bc9"
 
 #REBUILD_CACHE="true"
 if [ -n "$REBUILD_CACHE" ]
